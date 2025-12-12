@@ -2,8 +2,8 @@ from pydantic_settings import BaseSettings
 from pathlib import Path
 
 class Settings(BaseSettings):
-    openai_api_key: str
-    openai_model: str = "gpt-3.5-turbo"
+    openrouter_api_key: str
+    openrouter_model: str = "google/gemma-3-12b-it:free"
     max_file_size_mb: int = 50
     upload_dir: str = "./uploads"
     

@@ -6,10 +6,17 @@ from config import settings
 import plotly.express as px
 import plotly.graph_objects as go
 import re
+import httpx
 
 class AIDataAnalyst:
     def __init__(self):
-        self.client = OpenAI(api_key=settings.openai_api_key)
+        # Create httpx client with SSL verification disabled (Windows SSL fix)
+        http_client = httpx.Client(verify=False)
+        self.client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=settings.openrouter_api_key,
+            http_client=http_client
+        )
         self.df: Optional[pd.DataFrame] = None
         self.df_info: Optional[Dict[str, Any]] = None
     
@@ -24,14 +31,16 @@ class AIDataAnalyst:
         system_prompt = self._build_system_prompt()
         
         try:
-            model_to_use = settings.openai_model
-            print(f"[DEBUG] Using OpenAI model: {model_to_use}")
+            model_to_use = settings.openrouter_model
+            print(f"[DEBUG] Using OpenRouter model: {model_to_use}")
+            
+            # Combine system prompt with user query for models that don't support system messages
+            combined_prompt = f"{system_prompt}\n\nUser Question: {query}"
             
             response = self.client.chat.completions.create(
                 model=model_to_use,
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": query}
+                    {"role": "user", "content": combined_prompt}
                 ],
                 temperature=0.1,
                 max_tokens=2000
@@ -213,10 +222,15 @@ Example queries and responses:
     
     def _serialize_result(self, result: Any) -> Any:
         if isinstance(result, pd.DataFrame):
-            return result.to_dict(orient='records')
+            # Use to_json which handles NaN properly (converts to null)
+            return json.loads(result.to_json(orient='records'))
         elif isinstance(result, pd.Series):
-            return result.to_dict()
+            # Use to_json which handles NaN properly
+            return json.loads(result.to_json())
         elif isinstance(result, (int, float, str, bool)):
+            # Handle NaN float values
+            if isinstance(result, float) and (pd.isna(result) or result != result):
+                return None
             return result
         elif isinstance(result, dict):
             return {k: self._serialize_result(v) for k, v in result.items()}

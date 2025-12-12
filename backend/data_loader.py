@@ -25,7 +25,7 @@ class DataLoader:
             "shape": {"rows": int(df.shape[0]), "columns": int(df.shape[1])},
             "columns": [],
             "memory_usage": f"{df.memory_usage(deep=True).sum() / 1024 / 1024:.2f} MB",
-            "sample_data": df.head(5).to_dict(orient='records')
+            "sample_data": json.loads(df.head(5).to_json(orient='records'))
         }
         
         for col in df.columns:
@@ -38,11 +38,16 @@ class DataLoader:
             }
             
             if pd.api.types.is_numeric_dtype(df[col]):
+                mean_val = df[col].mean()
+                min_val = df[col].min()
+                max_val = df[col].max()
+                std_val = df[col].std()
+                
                 col_info["stats"] = {
-                    "mean": float(df[col].mean()) if not df[col].isna().all() else None,
-                    "min": float(df[col].min()) if not df[col].isna().all() else None,
-                    "max": float(df[col].max()) if not df[col].isna().all() else None,
-                    "std": float(df[col].std()) if not df[col].isna().all() else None
+                    "mean": None if pd.isna(mean_val) else float(mean_val),
+                    "min": None if pd.isna(min_val) else float(min_val),
+                    "max": None if pd.isna(max_val) else float(max_val),
+                    "std": None if pd.isna(std_val) else float(std_val)
                 }
             elif pd.api.types.is_string_dtype(df[col]) or pd.api.types.is_object_dtype(df[col]):
                 value_counts = df[col].value_counts().head(5)
